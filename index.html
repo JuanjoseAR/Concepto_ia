@@ -1,0 +1,506 @@
+<title>Cómo responde una IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: mapa de un recorrido en tres zonas (qué es · cómo lee · cómo responde) con un bucle de generación; al entrar a un concepto, el mapa se vuelve un riel y el contenido se parte en explicación + demostración. */
+:root{
+  --bg:#f7f5fc;
+  --surface:#ffffff;
+  --surface-2:#efebf9;
+  --ink:#1d1640;
+  --ink-2:#5a527a;
+  --line:#dcd5ef;
+  --accent:#6d3ff0;
+  --accent-soft:#e7defe;
+  --accent-ink:#ffffff;
+  --rose:#d9468f;
+  --rose-soft:#fbe3ef;
+  --mint:#127a5c;
+  --mint-soft:#dcf3ea;
+  --zone-a:#f1ecff;
+  --zone-b:#fdeef6;
+  --zone-c:#e9f1ff;
+  --shadow:0 1px 2px rgba(29,22,64,.06),0 8px 24px rgba(29,22,64,.07);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:18px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#110d24;--surface:#1b1638;--surface-2:#241e48;--ink:#f1edff;--ink-2:#b3aad6;--line:#352d63;
+    --accent:#a58bff;--accent-soft:#2f2562;--accent-ink:#140f2e;--rose:#f27ab5;--rose-soft:#3d1f3a;
+    --mint:#5fd4a8;--mint-soft:#163a31;--zone-a:#1d1840;--zone-b:#281a38;--zone-c:#172240;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#110d24;--surface:#1b1638;--surface-2:#241e48;--ink:#f1edff;--ink-2:#b3aad6;--line:#352d63;
+  --accent:#a58bff;--accent-soft:#2f2562;--accent-ink:#140f2e;--rose:#f27ab5;--rose-soft:#3d1f3a;
+  --mint:#5fd4a8;--mint-soft:#163a31;--zone-a:#1d1840;--zone-b:#281a38;--zone-c:#172240;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;padding-inline:clamp(16px,4vw,48px);padding-block:24px 48px}
+.wrap{max-width:1180px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:8px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+
+/* ---------- Cabecera ---------- */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:20px}
+.top h1{font-size:clamp(30px,4.6vw,48px);font-weight:800;line-height:1.05}
+.top p{margin:6px 0 0;color:var(--ink-2);max-width:62ch}
+.pill-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;font-weight:600;font-size:15px}
+.pill-btn:hover{border-color:var(--accent)}
+.pill-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* ---------- Mapa ---------- */
+#mapView .map-card{background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:clamp(12px,2vw,24px)}
+.map-help{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;color:var(--ink-2);font-size:14px;margin:0 4px 8px}
+.map-help .k{display:inline-flex;align-items:center;gap:8px}
+.sw{width:26px;height:0;border-top:2px solid var(--ink-2);display:inline-block}
+.sw.dash{border-top:2px dashed var(--rose)}
+#mapSvg{width:100%;height:auto;display:block}
+.node{cursor:pointer}
+.node circle.halo{fill:var(--accent-soft);opacity:0;transition:opacity .2s}
+.node circle.core{fill:var(--surface);stroke:var(--accent);stroke-width:2.5;transition:fill .2s}
+.node text.num{font-family:var(--f-display);font-weight:800;fill:var(--accent);font-size:20px}
+.node text.lbl{font-family:var(--f-display);font-weight:700;fill:var(--ink);font-size:17px}
+.node text.hint{font-family:var(--f-body);fill:var(--ink-2);font-size:13px}
+.node:hover circle.halo,.node:focus circle.halo,.node.on circle.halo{opacity:1}
+.node:hover circle.core,.node:focus circle.core,.node.on circle.core{fill:var(--accent)}
+.node:hover text.num,.node:focus text.num,.node.on text.num{fill:var(--accent-ink)}
+.node:focus{outline:none}
+.edge{fill:none;stroke:var(--line);stroke-width:2.5;transition:stroke .2s}
+.edge.cross{stroke:var(--rose);stroke-dasharray:6 6;opacity:.55}
+.edge.on{stroke:var(--accent);opacity:1}
+.edge.cross.on{stroke:var(--rose)}
+.elabel{font-size:13px;fill:var(--rose);font-weight:600}
+.zone rect{rx:20}
+.zone text{font-size:12px;font-weight:700;letter-spacing:.14em;fill:var(--ink-2)}
+.dim .node:not(.on){opacity:.35}
+.dim .edge:not(.on){opacity:.2}
+.map-foot{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:16px}
+.zone-card{border-radius:var(--r);padding:14px 16px;border:1px solid var(--line)}
+.zone-card h3{font-size:16px;margin-bottom:4px}
+.zone-card p{margin:0;font-size:14px;color:var(--ink-2)}
+.za{background:var(--zone-a)}.zb{background:var(--zone-b)}.zc{background:var(--zone-c)}
+
+/* ---------- Riel ---------- */
+.rail-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.rail{display:flex;gap:6px;overflow-x:auto;padding:4px;flex:1 1 420px;min-width:0;scrollbar-width:thin}
+.rail button{flex:0 0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px 6px 6px;font-size:14px;font-weight:600;color:var(--ink-2)}
+.rail button .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);color:var(--accent);font-family:var(--f-display);font-weight:800;font-size:13px}
+.rail button[aria-current="step"]{border-color:var(--accent);color:var(--ink);background:var(--accent-soft)}
+.rail button[aria-current="step"] .n{background:var(--accent);color:var(--accent-ink)}
+
+/* ---------- Concepto ---------- */
+.concept{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:24px;align-items:start}
+@media (max-width:900px){.concept{grid-template-columns:1fr}}
+.c-head{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.c-head h2{font-size:clamp(32px,5vw,54px);font-weight:800;line-height:1}
+.c-head .zone-tag{display:inline-block;margin-bottom:8px}
+.oneliner{grid-column:1/-1;font-size:clamp(18px,2.2vw,22px);line-height:1.45;margin:0;max-width:60ch;font-family:var(--f-display);font-weight:500}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.block h3{font-size:15px;font-family:var(--f-body);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px}
+.block ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.block p{margin:0}
+.block.gh{background:var(--mint-soft);border-color:transparent}
+.block.gh h3{color:var(--mint)}
+.block.myth{background:var(--rose-soft);border-color:transparent}
+.block.myth h3{color:var(--rose)}
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:20px;min-width:0}
+.demo-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.demo-h h3{font-size:20px}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.relations{display:flex;flex-direction:column;gap:8px}
+.rel{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 14px}
+.rel:hover{border-color:var(--accent)}
+.rel b{font-family:var(--f-display);font-size:16px;white-space:nowrap}
+.rel span{color:var(--ink-2);font-size:14px}
+.rel .arrow{margin-left:auto;color:var(--accent);font-weight:700}
+.sources{display:grid;gap:10px}
+.src{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px}
+.src:first-of-type{border-top:0;padding-top:0}
+.src span{font-size:14px;min-width:0;flex:1 1 220px}
+.src a{font-size:12px;font-weight:700;letter-spacing:.08em;text-decoration:none;border:1px solid var(--accent);border-radius:999px;padding:5px 12px;white-space:nowrap}
+.src a:hover{background:var(--accent);color:var(--accent-ink)}
+.pager{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.note{font-size:13px;color:var(--ink-2);margin-top:10px}
+
+/* ---------- Demos ---------- */
+.seg{display:inline-flex;background:var(--surface-2);border-radius:999px;padding:4px;gap:4px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;border-radius:999px;padding:7px 14px;font-weight:600;font-size:14px;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.nest{position:relative;aspect-ratio:1/1;max-width:420px;margin:8px auto 0;width:100%}
+.nest button{position:absolute;border-radius:50%;border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent);display:flex;justify-content:center;padding-top:10px;font-weight:700;font-size:13px;color:var(--ink)}
+.nest button[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.nest-info{min-height:4.6em;margin-top:12px;background:var(--surface-2);border-radius:14px;padding:12px 14px;font-size:15px}
+.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:8px;margin-top:12px}
+.flow .box{border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;font-size:14px;background:var(--surface-2);min-width:0}
+.flow .box b{display:block;font-family:var(--f-display);font-size:16px;margin-bottom:2px}
+.flow .box.core{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.flow .ar{color:var(--accent);font-weight:800}
+@media (max-width:520px){.flow{grid-template-columns:1fr}.flow .ar{transform:rotate(90deg);justify-self:center}}
+textarea,input[type=text]{width:100%;font:inherit;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--surface-2);color:var(--ink);resize:vertical}
+.toks{font-family:var(--f-mono);font-size:15px;line-height:2.1;margin-top:12px;word-break:break-word}
+.toks span{border-radius:6px;padding:2px 3px;margin-right:2px}
+.t0{background:#e5dcff;color:#2a1a66}.t1{background:#fcd9ea;color:#5c1438}.t2{background:#d6f0e5;color:#0d4a37}.t3{background:#ffe9c7;color:#5a3a06}.t4{background:#d9e6ff;color:#14306b}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat{background:var(--surface-2);border-radius:14px;padding:10px 12px}
+.stat b{display:block;font-family:var(--f-display);font-size:26px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:12px;color:var(--ink-2)}
+.ctx-bar{position:relative;height:56px;border-radius:14px;border:2px solid var(--accent);background:var(--surface-2);display:flex;overflow:hidden;margin-top:12px}
+.ctx-bar .piece{height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1d1640;overflow:hidden;white-space:nowrap;border-right:2px solid var(--surface);transition:width .3s}
+.ctx-meta{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);margin-top:6px;font-variant-numeric:tabular-nums}
+.ctx-out{margin-top:10px;font-size:14px;min-height:1.5em;color:var(--rose);font-weight:600}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btns button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;font-weight:600}
+.btns button:hover{border-color:var(--accent)}
+.att-sent{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.att-sent button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 10px;font-weight:600;font-size:15px;position:relative;transition:background .2s}
+.att-sent button[aria-pressed="true"]{border-color:var(--accent);outline:2px solid var(--accent)}
+.att-list{margin-top:14px;display:grid;gap:6px}
+.att-row{display:grid;grid-template-columns:120px 1fr 44px;gap:10px;align-items:center;font-size:14px}
+.att-row .track{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.att-row .fill{height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.att-row .v{font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
+.prompt-line{font-family:var(--f-display);font-size:20px;font-weight:600;margin-top:4px}
+.prompt-line em{font-style:normal;color:var(--accent);border-bottom:2px dashed var(--accent)}
+.probs{display:grid;gap:8px;margin-top:14px}
+.prob{display:grid;grid-template-columns:100px 1fr 52px;gap:10px;align-items:center;font-size:15px}
+.prob .track{height:18px;border-radius:8px;background:var(--surface-2);overflow:hidden}
+.prob .fill{height:100%;background:var(--accent);transition:width .25s}
+.prob.pick .fill{background:var(--rose)}
+.prob .v{font-variant-numeric:tabular-nums;text-align:right}
+.slider{display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.slider label{font-weight:600;font-size:14px}
+.slider input{flex:1 1 180px;accent-color:var(--accent)}
+.slider output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;min-width:3ch}
+.gen-out{margin-top:12px;background:var(--surface-2);border-radius:14px;padding:14px;font-size:17px;min-height:5.2em;line-height:1.7}
+.gen-out .new{background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:1px 4px}
+.gen-out .ctx{color:var(--ink-2)}
+.loop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;margin-top:10px;color:var(--ink-2)}
+.loop i{font-style:normal;border-radius:999px;padding:3px 10px;background:var(--surface-2);font-weight:600}
+.loop i.on{background:var(--accent);color:var(--accent-ink)}
+
+.foot{margin-top:28px;font-size:13px;color:var(--ink-2);max-width:80ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">LAB IA Aplicada · Conceptos técnicos</div>
+      <h1 id="pageTitle">Cómo responde una IA</h1>
+      <p id="pageSub">De la inteligencia artificial a la respuesta que lees en pantalla. Entra a cualquier concepto, explora sus relaciones y vuelve al mapa cuando quieras.</p>
+    </div>
+    <button class="pill-btn" id="themeBtn" type="button" aria-label="Cambiar tema claro u oscuro">◐ Tema</button>
+  </header>
+
+  <section id="mapView" aria-label="Mapa de conceptos">
+    <div class="map-card">
+      <div class="map-help">
+        <span class="k"><span class="sw"></span> recorrido principal</span>
+        <span class="k"><span class="sw dash"></span> relación clave entre conceptos</span>
+        <span>Toca un concepto para entrar.</span>
+      </div>
+      <svg id="mapSvg" role="group" aria-label="Recorrido de ocho conceptos"></svg>
+    </div>
+    <div class="map-foot">
+      <div class="zone-card za"><h3>Qué es</h3><p>Dónde encaja un LLM dentro del campo de la IA y qué es un modelo.</p></div>
+      <div class="zone-card zb"><h3>Cómo lee</h3><p>El texto se parte en tokens y todo lo que el modelo puede ver cabe en su ventana de contexto.</p></div>
+      <div class="zone-card zc"><h3>Cómo responde</h3><p>La atención relaciona los tokens, el modelo predice el siguiente y repite hasta completar la respuesta.</p></div>
+    </div>
+  </section>
+
+  <section id="conceptView" hidden aria-live="polite">
+    <div class="rail-bar">
+      <button class="pill-btn" id="backBtn" type="button">← Mapa</button>
+      <nav class="rail" id="rail" aria-label="Conceptos"></nav>
+    </div>
+    <article class="concept" id="concept"></article>
+  </section>
+
+  <p class="foot">Las demostraciones son ilustrativas: simplifican el funcionamiento para explicarlo y no muestran los valores internos de un modelo real. Cada concepto cita sus fuentes. Información consultada el 29 de septiembre de 2026.</p>
+</div>
+
+<script>
+const SRC={
+  oecd:{t:"OECD (2024). Explanatory memorandum on the updated OECD definition of an AI system",u:"https://www.oecd.org/en/publications/explanatory-memorandum-on-the-updated-oecd-definition-of-an-ai-system_623da898-en.html"},
+  nist:{t:"NIST AI 600-1 (2024). Artificial Intelligence Risk Management Framework: Generative AI Profile",u:"https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf"},
+  gml:{t:"Google for Developers. Machine Learning Glossary",u:"https://developers.google.com/machine-learning/glossary"},
+  tok:{t:"OpenAI Help Center. Understanding and counting tokens",u:"https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them"},
+  ctx:{t:"Claude Platform Docs. Context windows",u:"https://platform.claude.com/docs/en/build-with-claude/context-windows"},
+  vas:{t:"Vaswani et al. (2017). Attention Is All You Need",u:"https://arxiv.org/abs/1706.03762"}
+};
+const ZONES={a:{name:"QUÉ ES",cls:"za",fill:"--zone-a"},b:{name:"CÓMO LEE",cls:"zb",fill:"--zone-b"},c:{name:"CÓMO RESPONDE",cls:"zc",fill:"--zone-c"}};
+
+const C=[
+ {id:"ia",name:"Inteligencia artificial",short:"IA",zone:"a",hint:"El campo completo",
+  one:"Un sistema basado en máquinas que, a partir de las entradas que recibe, infiere cómo generar salidas: predicciones, contenido, recomendaciones o decisiones.",
+  how:["Es un campo amplio: incluye desde filtros de correo no deseado hasta sistemas que generan texto o imágenes.","Su nivel de autonomía y de adaptación cambia de un sistema a otro.","La IA generativa es una parte de ese campo: produce contenido nuevo (texto, imágenes, audio o video) a partir de patrones aprendidos."],
+  gh:"Un sistema que sugiere candidatos para una vacante y un asistente que redacta la convocatoria son IA, pero solo el segundo es IA generativa.",
+  myth:"«IA es lo mismo que ChatGPT». ChatGPT es un producto que usa IA generativa, una rama dentro de un campo mucho más grande.",
+  demo:"nest",src:["oecd","nist"],
+  rel:[["modelo","Todo sistema de IA funciona con uno o más modelos."],["llm","Los LLM son el tipo de IA generativa que trabaja con lenguaje."]]},
+ {id:"modelo",name:"Modelo",short:"Modelo",zone:"a",hint:"El motor que infiere",
+  one:"El componente de un sistema de IA que usa las entradas para inferir salidas. No es la empresa que lo desarrolla ni la aplicación que usas.",
+  how:["Primero se entrena: ajusta sus parámetros con grandes volúmenes de datos para capturar patrones.","Después se usa (inferencia): recibe una entrada nueva y aplica lo aprendido para producir una salida.","Un mismo modelo puede estar dentro de varias aplicaciones, y una aplicación puede usar varios modelos."],
+  gh:"La familia GPT es un modelo; ChatGPT es la aplicación. Copilot, dentro de Word, puede usar modelos de distintas empresas.",
+  myth:"«El modelo aprende de cada conversación en tiempo real». Durante el uso normal aplica lo que ya aprendió; el entrenamiento ocurre antes, por separado.",
+  demo:"model",src:["oecd","gml"],
+  rel:[["ia","El modelo es el componente central de un sistema de IA."],["llm","Un LLM es un tipo de modelo especializado en lenguaje."]]},
+ {id:"llm",name:"LLM",short:"LLM",zone:"a",hint:"Modelo grande de lenguaje",
+  one:"Un modelo de lenguaje grande y de propósito general que puede adaptarse a muchas tareas: redactar, resumir, traducir, responder preguntas.",
+  how:["Se entrena con enormes cantidades de texto para aprender cómo se relacionan las palabras.","Su tarea básica es predecir cuál es el siguiente fragmento de texto más probable.","Los LLM actuales están construidos sobre la arquitectura Transformer."],
+  gh:"Con un LLM puedes pasar de las notas sueltas de una entrevista a un informe ordenado en minutos, y luego revisarlo tú.",
+  myth:"«Un LLM busca en internet cada respuesta». Por sí solo genera texto con lo que aprendió; algunos productos le agregan búsqueda web como herramienta aparte.",
+  demo:"llm",src:["gml","nist"],
+  rel:[["modelo","Un LLM es un tipo de modelo."],["tokens","El LLM no lee palabras: lee y produce tokens."],["transformer","Los LLM actuales usan la arquitectura Transformer."]]},
+ {id:"tokens",name:"Tokens",short:"Tokens",zone:"b",hint:"Las piezas del texto",
+  one:"Un token es una pieza de texto (una palabra, parte de una palabra o un carácter). Es la unidad básica que el modelo procesa.",
+  how:["Antes de procesarlo, el texto se divide en tokens; cada modelo usa su propio divisor (tokenizador).","En inglés, un token equivale en promedio a unos 4 caracteres, o 3/4 de palabra. En español y otros idiomas la relación cambia.","Los límites de uso y los costos de los modelos se miden en tokens, no en palabras."],
+  gh:"Un reglamento interno de 20 páginas puede ocupar miles de tokens. Por eso a veces una herramienta pide dividir un documento largo.",
+  myth:"«Un token es una palabra». A veces sí, pero muchas palabras se parten en varios tokens y los signos de puntuación también cuentan.",
+  demo:"tokens",src:["gml","tok"],
+  rel:[["contexto","La ventana de contexto se mide en tokens."],["prediccion","El modelo predice el siguiente token, uno a la vez."]]},
+ {id:"contexto",name:"Contexto",short:"Contexto",zone:"b",hint:"La memoria de trabajo",
+  one:"La ventana de contexto es todo el texto que el modelo puede consultar al generar una respuesta, incluida la propia respuesta. Funciona como su memoria de trabajo.",
+  how:["Cuentan las instrucciones, cada mensaje de la conversación, los documentos adjuntos y lo que el modelo escribe.","Su tamaño se mide en tokens y cambia según el modelo.","Más contexto no siempre es mejor: con demasiado texto, la precisión para encontrar un dato puede bajar."],
+  gh:"Si pegas la política de vacaciones y luego preguntas por ella, la respuesta se apoya en ese texto. En una conversación nueva, ese documento ya no está en el contexto.",
+  myth:"«La IA recuerda todo lo que le dije antes». Solo ve lo que cabe en su ventana de contexto; algunos productos añaden funciones de memoria aparte.",
+  demo:"context",src:["ctx","gml"],
+  rel:[["tokens","El contexto se mide en tokens."],["transformer","La atención recorre todo lo que hay en el contexto."],["generacion","Cada token nuevo de la respuesta vuelve a entrar al contexto."]]},
+ {id:"transformer",name:"Transformer y atención",short:"Atención",zone:"c",hint:"Relacionar las piezas",
+  one:"El Transformer es la arquitectura en la que se basan los LLM actuales. Su mecanismo central, la atención, calcula qué tan importante es cada token para interpretar los demás.",
+  how:["Presentado en 2017 en el artículo «Attention Is All You Need».","Analiza las relaciones entre todas las posiciones del texto al mismo tiempo, en lugar de leer palabra por palabra en orden.","Así puede resolver, por ejemplo, a quién se refiere un «ella» dentro de una frase larga."],
+  gh:"En «La colaboradora pidió vacaciones porque ella terminó el proyecto», la atención ayuda a conectar «ella» con «colaboradora».",
+  myth:"«La atención es comprensión humana». Es un cálculo matemático de relaciones entre tokens; resulta muy útil, pero no equivale a entender como una persona.",
+  demo:"attention",src:["vas","gml"],
+  rel:[["llm","Los LLM actuales se construyen sobre Transformers."],["contexto","La atención trabaja sobre todo el contexto disponible."],["prediccion","Con esas relaciones, el modelo calcula el siguiente token."]]},
+ {id:"prediccion",name:"Predicción",short:"Predicción",zone:"c",hint:"El siguiente token",
+  one:"Con todo el contexto, el modelo calcula una probabilidad para cada token posible y elige el siguiente.",
+  how:["No busca una respuesta guardada: estima qué continuación es más probable.","La temperatura controla el azar: baja, respuestas más predecibles; alta, más variadas.","Lo más probable no es necesariamente lo verdadero. Por eso un modelo puede inventar datos con total seguridad (NIST lo llama confabulación)."],
+  gh:"Si pides «el artículo del Código Sustantivo del Trabajo sobre vacaciones», el modelo puede dar un número que suena correcto sin serlo. Verifica siempre en la fuente.",
+  myth:"«Si lo dice con seguridad, es correcto». El tono seguro viene de la predicción, no de haber verificado el dato.",
+  demo:"predict",src:["gml","nist"],
+  rel:[["tokens","Lo que se predice es un token, no una frase completa."],["transformer","La atención aporta las relaciones que usa la predicción."],["generacion","Repetir la predicción muchas veces produce la respuesta."]]},
+ {id:"generacion",name:"Generación de respuesta",short:"Generación",zone:"c",hint:"Token a token",
+  one:"La respuesta se construye un token a la vez: cada token elegido se agrega al contexto y el modelo vuelve a predecir, hasta terminar.",
+  how:["A este funcionamiento se le llama autorregresivo: cada predicción se apoya en las anteriores.","Por eso ves que el texto aparece poco a poco en pantalla.","Si pides lo mismo dos veces, la respuesta puede cambiar, porque en cada paso hay varias opciones posibles."],
+  gh:"Pide un borrador de bienvenida, revísalo y ajústalo. El primer resultado es una versión 1, no la versión final.",
+  myth:"«La IA escribe la respuesta completa y luego la muestra». La construye paso a paso, y cada paso depende de lo que ya escribió.",
+  demo:"generate",src:["gml"],
+  rel:[["prediccion","Cada paso de la generación es una predicción."],["contexto","El token generado vuelve al contexto para el paso siguiente."]]}
+];
+const byId=Object.fromEntries(C.map((c,i)=>[c.id,{...c,i}]));
+const CROSS=[["llm","transformer","los LLM se basan en Transformers"],["generacion","contexto","cada token nuevo vuelve al contexto"]];
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs={},parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+
+/* ---------- Mapa ---------- */
+function drawMap(){
+  const svg=$("#mapSvg");svg.innerHTML="";
+  const narrow=svg.parentElement.clientWidth<700;
+  let W,H,pos,R=narrow?24:34;
+  if(!narrow){
+    W=1000;H=390;const xs=[70,190,310,450,570,710,830,945];pos=xs.map(x=>({x,y:175}));
+    [["a",20,360],["b",390,630],["c",650,990]].forEach(([z,x1,x2])=>{
+      const g=el("g",{class:"zone"},svg);
+      el("rect",{x:x1,y:24,width:x2-x1,height:330,fill:`var(${ZONES[z].fill})`},g);
+      const t=el("text",{x:x1+18,y:50},g);t.textContent=ZONES[z].name;
+    });
+  }else{
+    W=380;const step=112;H=60+step*8;pos=C.map((c,i)=>({x:110,y:70+i*step+(c.zone==="b"?24:c.zone==="c"?48:0)}));H=pos[7].y+90;
+    [["a",0,2],["b",3,4],["c",5,7]].forEach(([z,a,b])=>{
+      const g=el("g",{class:"zone"},svg);
+      el("rect",{x:4,y:pos[a].y-50,width:W-8,height:pos[b].y-pos[a].y+100,fill:`var(${ZONES[z].fill})`},g);
+      const t=el("text",{x:W-20,y:pos[a].y-30,"text-anchor":"end"},g);t.textContent=ZONES[z].name;
+    });
+  }
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  const edges=el("g",{},svg);
+  for(let i=0;i<7;i++){
+    const a=pos[i],b=pos[i+1];
+    el("path",{class:"edge","data-a":C[i].id,"data-b":C[i+1].id,d:narrow?`M${a.x},${a.y+R} L${b.x},${b.y-R}`:`M${a.x+R},${a.y} L${b.x-R},${b.y}`},edges);
+  }
+  CROSS.forEach(([a,b,label],k)=>{
+    const p=pos[byId[a].i],q=pos[byId[b].i];let d,lx,ly,anchor="middle";
+    if(!narrow){
+      if(k===0){d=`M${p.x},${p.y-R} C${p.x},85 ${q.x},85 ${q.x},${q.y-R}`;lx=(p.x+q.x)/2;ly=92}
+      else{d=`M${p.x},${p.y+R+72} C${p.x},370 ${q.x},370 ${q.x},${q.y+R+72}`;lx=(p.x+q.x)/2;ly=378}
+    }else{
+      const cx=k===0?30:4;d=`M${p.x-R},${p.y} C${cx},${p.y} ${cx},${q.y} ${q.x-R},${q.y}`;lx=null;
+    }
+    el("path",{class:"edge cross","data-a":a,"data-b":b,d},edges);
+    if(lx!==null){const t=el("text",{x:lx,y:ly,"text-anchor":anchor,class:"elabel"},edges);t.textContent=label}
+  });
+  C.forEach((c,i)=>{
+    const p=pos[i];
+    const g=el("g",{class:"node",tabindex:"0",role:"button","data-id":c.id,"aria-label":`${c.name}: ${c.hint}. Abrir concepto`},svg);
+    el("circle",{class:"halo",cx:p.x,cy:p.y,r:R+10},g);
+    el("circle",{class:"core",cx:p.x,cy:p.y,r:R},g);
+    const n=el("text",{class:"num",x:p.x,y:p.y+7,"text-anchor":"middle"},g);n.textContent=i+1;
+    if(!narrow){
+      const l=el("text",{class:"lbl",x:p.x,y:p.y+R+28,"text-anchor":"middle"},g);l.textContent=c.short;
+      const h=el("text",{class:"hint",x:p.x,y:p.y+R+47,"text-anchor":"middle"},g);const ws=c.hint.split(" "),cut=Math.ceil(ws.length/2);[ws.slice(0,cut).join(" "),ws.slice(cut).join(" ")].filter(Boolean).forEach((line,j)=>{const ts=el("tspan",{x:p.x,dy:j?16:0},h);ts.textContent=line});
+    }else{
+      const l=el("text",{class:"lbl",x:p.x+R+18,y:p.y-2},g);l.textContent=c.name.length>22?c.short:c.name;
+      const h=el("text",{class:"hint",x:p.x+R+18,y:p.y+18},g);h.textContent=c.hint;
+    }
+    g.addEventListener("click",()=>openConcept(c.id));
+    g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openConcept(c.id)}});
+    const on=()=>highlight(c.id),off=()=>highlight(null);
+    g.addEventListener("mouseenter",on);g.addEventListener("mouseleave",off);g.addEventListener("focus",on);g.addEventListener("blur",off);
+  });
+}
+function highlight(id){
+  const svg=$("#mapSvg");svg.classList.toggle("dim",!!id);
+  svg.querySelectorAll(".node").forEach(n=>n.classList.remove("on"));
+  svg.querySelectorAll(".edge").forEach(e=>e.classList.remove("on"));
+  if(!id)return;
+  const linked=new Set([id]);
+  svg.querySelectorAll(".edge").forEach(e=>{if(e.dataset.a===id||e.dataset.b===id){e.classList.add("on");linked.add(e.dataset.a);linked.add(e.dataset.b)}});
+  byId[id].rel.forEach(([r])=>linked.add(r));
+  svg.querySelectorAll(".node").forEach(n=>{if(linked.has(n.dataset.id))n.classList.add("on")});
+}
+
+/* ---------- Concepto ---------- */
+function buildRail(){
+  $("#rail").innerHTML=C.map((c,i)=>`<button type="button" data-id="${c.id}"><span class="n">${i+1}</span>${esc(c.short)}</button>`).join("");
+  $("#rail").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>openConcept(b.dataset.id)));
+}
+function openConcept(id,push=true){
+  const c=byId[id];if(!c)return;
+  $("#mapView").hidden=true;$("#conceptView").hidden=false;
+  $("#rail").querySelectorAll("button").forEach(b=>{if(b.dataset.id===id){b.setAttribute("aria-current","step");b.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"})}else b.removeAttribute("aria-current")});
+  const prev=C[c.i-1],next=C[c.i+1],z=ZONES[c.zone];
+  $("#concept").innerHTML=`
+    <div class="c-head"><div><span class="eyebrow zone-tag">${z.name} · Concepto ${c.i+1} de 8</span><h2 id="cTitle" tabindex="-1">${esc(c.name)}</h2></div></div>
+    <p class="oneliner">${esc(c.one)}</p>
+    <div class="col">
+      <div class="block"><h3>Cómo funciona</h3><ul>${c.how.map(h=>`<li>${esc(h)}</li>`).join("")}</ul></div>
+      <div class="block gh"><h3>En Gestión Humana</h3><p>${esc(c.gh)}</p></div>
+      <div class="block myth"><h3>Idea equivocada frecuente</h3><p>${esc(c.myth)}</p></div>
+    </div>
+    <div class="col">
+      <div class="demo" id="demo"></div>
+      <div class="block"><h3>Se conecta con</h3><div class="relations">${c.rel.map(([r,txt])=>`<button class="rel" type="button" data-id="${r}"><b>${esc(byId[r].short)}</b><span>${esc(txt)}</span><span class="arrow">→</span></button>`).join("")}</div></div>
+      <div class="block"><h3>Fuentes</h3><div class="sources">${c.src.map(s=>`<div class="src"><span>${esc(SRC[s].t)}</span><a href="${SRC[s].u}" target="_blank" rel="noopener">CONOCER MÁS</a></div>`).join("")}</div><p class="note">Consultado el 29 de septiembre de 2026.</p></div>
+    </div>
+    <div class="pager">
+      ${prev?`<button class="pill-btn" type="button" data-id="${prev.id}">← ${esc(prev.short)}</button>`:"<span></span>"}
+      ${next?`<button class="pill-btn primary" type="button" data-id="${next.id}">${esc(next.short)} →</button>`:`<button class="pill-btn primary" type="button" data-map="1">Volver al mapa</button>`}
+    </div>`;
+  $("#concept").querySelectorAll("[data-id]").forEach(b=>b.addEventListener("click",()=>openConcept(b.dataset.id)));
+  const m=$("#concept").querySelector("[data-map]");if(m)m.addEventListener("click",showMap);
+  DEMOS[c.demo]($("#demo"));
+  if(push){try{history.replaceState(null,"","#"+id)}catch(e){}}
+  window.scrollTo({top:0,behavior:"smooth"});
+  $("#cTitle").focus({preventScroll:true});
+}
+function showMap(){
+  $("#conceptView").hidden=true;$("#mapView").hidden=false;
+  try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}
+  drawMap();
+}
+
+/* ---------- Demostraciones ---------- */
+function demoHead(title,tag){return `<div class="demo-h"><h3>${title}</h3><span class="tag">${tag}</span></div>`}
+const DEMOS={
+ nest(root){
+  const L=[["ia","Inteligencia artificial","Sistemas que infieren salidas a partir de entradas: predicciones, contenido, recomendaciones o decisiones."],
+   ["ml","Aprendizaje automático","Sistemas que aprenden patrones a partir de datos en lugar de seguir solo reglas escritas a mano."],
+   ["dl","Aprendizaje profundo","Aprendizaje automático con redes neuronales de muchas capas."],
+   ["gen","IA generativa","Modelos que generan contenido nuevo: texto, imágenes, audio o video."],
+   ["llm","LLM","Modelos generativos grandes especializados en lenguaje. Aquí vive la familia GPT, Claude o Gemini."]];
+  root.innerHTML=demoHead("¿Dónde encaja un LLM?","Toca cada círculo")+`<div class="nest" id="nest"></div><div class="nest-info" id="nestInfo"></div>`;
+  const nest=root.querySelector("#nest"),info=root.querySelector("#nestInfo");
+  L.forEach(([k,name,desc],i)=>{
+    const size=100-i*18,off=(100-size)/2+i*4;
+    const b=document.createElement("button");b.type="button";b.textContent=name;
+    Object.assign(b.style,{width:size+"%",height:size+"%",left:(100-size)/2+"%",top:off+"%"});
+    b.addEventListener("click",e=>{e.stopPropagation();nest.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed","false"));b.setAttribute("aria-pressed","true");info.innerHTML=`<b>${name}.</b> ${desc}`});
+    nest.appendChild(b);
+  });
+  nest.querySelectorAll("button")[4].click();
+ },
+ model(root){
+  const S={train:{a:["Datos","Millones de textos de ejemplo"],c:["Modelo","Ajusta sus parámetros"],b:["Patrones","Aprendidos y guardados"],t:"El entrenamiento ocurre antes de que uses la herramienta y requiere enormes recursos de cómputo."},
+   use:{a:["Tu entrada","«Resume esta hoja de vida»"],c:["Modelo","Aplica lo aprendido"],b:["Salida","Un resumen de 5 líneas"],t:"Cada vez que escribes un mensaje, el modelo ya entrenado infiere una salida nueva."}};
+  root.innerHTML=demoHead("Entrenar y usar son momentos distintos","Ilustrativo")+`<div class="seg" role="group" aria-label="Momento"><button type="button" data-k="train" aria-pressed="false">1 · Entrenamiento</button><button type="button" data-k="use" aria-pressed="true">2 · Uso (inferencia)</button></div><div class="flow" id="flow"></div><p class="note" id="flowNote"></p>`;
+  const render=k=>{const s=S[k];root.querySelector("#flow").innerHTML=`<div class="box"><b>${s.a[0]}</b>${s.a[1]}</div><span class="ar">→</span><div class="box core"><b>${s.c[0]}</b>${s.c[1]}</div><span class="ar">→</span><div class="box"><b>${s.b[0]}</b>${s.b[1]}</div>`;root.querySelector("#flowNote").textContent=s.t;root.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k))};
+  root.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>render(b.dataset.k)));render("use");
+ },
+ llm(root){
+  const tasks=[["Redactar","Escribe una convocatoria para auxiliar de nómina.","Convocatoria: buscamos auxiliar de nómina con…"],["Resumir","Resume esta evaluación de desempeño en 3 puntos.","1. Cumple metas de… 2. Debe fortalecer… 3. …"],["Traducir","Traduce el mensaje de bienvenida al inglés.","Welcome to the team! We are glad…"],["Clasificar","¿Esta solicitud es de vacaciones, permiso o incapacidad?","Categoría: permiso."]];
+  root.innerHTML=demoHead("Un mismo modelo, muchas tareas","Ilustrativo")+`<div class="seg" role="group" aria-label="Tarea">${tasks.map((t,i)=>`<button type="button" data-i="${i}" aria-pressed="${i===0}">${t[0]}</button>`).join("")}</div><div class="flow" id="lf"></div><p class="note">La tarea cambia según la instrucción que le das; el modelo es el mismo. Todas se resuelven prediciendo texto.</p>`;
+  const r=i=>{const t=tasks[i];root.querySelector("#lf").innerHTML=`<div class="box"><b>Instrucción</b>${t[1]}</div><span class="ar">→</span><div class="box core"><b>LLM</b>predice texto</div><span class="ar">→</span><div class="box"><b>Resultado</b>${t[2]}</div>`;root.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.i===i))};
+  root.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>r(+b.dataset.i)));r(0);
+ },
+ tokens(root){
+  root.innerHTML=demoHead("Así se parte un texto","Segmentación ilustrativa")+`<label for="tokIn" class="note" style="display:block;margin:0 0 6px">Escribe o cambia el texto:</label><textarea id="tokIn" rows="3">Bienvenida al equipo de Talento Humano. Tu inducción empieza el lunes a las 8:00 a.m.</textarea><div class="toks" id="tokOut" aria-live="polite"></div><div class="stats"><div class="stat"><b id="sW">0</b><span>palabras</span></div><div class="stat"><b id="sC">0</b><span>caracteres</span></div><div class="stat"><b id="sT">0</b><span>tokens (aprox.)</span></div></div><p class="note">Cada modelo divide el texto con su propio tokenizador, así que el conteo real varía. Aquí las palabras largas se parten en trozos para mostrar la idea.</p>`;
+  const inp=root.querySelector("#tokIn");
+  const split=txt=>{const out=[];(txt.match(/\s*[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+|\s*\d+|\s*[^\sA-Za-zÁÉÍÓÚÜÑáéíóúüñ\d]/g)||[]).forEach(p=>{const lead=p.match(/^\s*/)[0],w=p.slice(lead.length);if(/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/.test(w)&&w.length>6){let rest=w,first=true;while(rest.length){const n=rest.length>6?4:rest.length;out.push((first?lead:"")+rest.slice(0,n));rest=rest.slice(n);first=false}}else out.push(p)});return out};
+  const run=()=>{const t=inp.value;const parts=split(t);root.querySelector("#tokOut").innerHTML=parts.map((p,i)=>`<span class="t${i%5}">${esc(p).replace(/ /g,"·")}</span>`).join("");root.querySelector("#sW").textContent=(t.trim().match(/\S+/g)||[]).length;root.querySelector("#sC").textContent=t.length;root.querySelector("#sT").textContent=parts.length};
+  inp.addEventListener("input",run);run();
+ },
+ context(root){
+  const CAP=100;const kinds={sys:["Instrucciones",18,"#c9b8ff"],msg:["Tu mensaje",10,"#f7b9d6"],doc:["Documento: política de vacaciones",40,"#ffd79a"],ans:["Respuesta del modelo",16,"#a8e2c8"]};
+  let items=[["sys"],["msg"]];
+  root.innerHTML=demoHead("La ventana de contexto se llena","Tamaños ilustrativos")+`<div class="ctx-bar" id="bar" role="img" aria-label="Ocupación de la ventana de contexto"></div><div class="ctx-meta"><span>Capacidad de la ventana</span><span id="used"></span></div><div class="btns"><button type="button" data-k="msg">+ Mensaje</button><button type="button" data-k="doc">+ Documento</button><button type="button" data-k="ans">+ Respuesta</button><button type="button" data-reset="1">Reiniciar</button></div><div class="ctx-out" id="ctxOut" aria-live="polite"></div><p class="note">Cuando no cabe todo, cada producto actúa distinto: recorta lo más antiguo, resume la conversación o avisa que el texto es demasiado largo. Aquí se muestra el recorte.</p>`;
+  const render=msg=>{const used=items.reduce((s,[k])=>s+kinds[k][1],0);root.querySelector("#bar").innerHTML=items.map(([k])=>`<div class="piece" style="width:${kinds[k][1]}%;background:${kinds[k][2]}" title="${kinds[k][0]}">${kinds[k][0].split(":")[0]}</div>`).join("");root.querySelector("#used").textContent=`${used} de ${CAP} tokens`;root.querySelector("#ctxOut").textContent=msg||""};
+  root.querySelectorAll("[data-k]").forEach(b=>b.addEventListener("click",()=>{items.push([b.dataset.k]);const lost=[];while(items.reduce((s,[k])=>s+kinds[k][1],0)>CAP){const idx=items.findIndex(([k])=>k!=="sys");lost.push(kinds[items[idx][0]][0]);items.splice(idx,1)}render(lost.length?`Salió de la ventana: ${lost.join(", ")}. El modelo ya no puede verlo.`:"")}));
+  root.querySelector("[data-reset]").addEventListener("click",()=>{items=[["sys"],["msg"]];render()});render();
+ },
+ attention(root){
+  const W=["La","colaboradora","pidió","vacaciones","porque","ella","terminó","el","proyecto"];
+  const A={ella:{colaboradora:.58,terminó:.14,pidió:.08,ella:.1,proyecto:.05,vacaciones:.05},terminó:{ella:.34,proyecto:.3,terminó:.14,colaboradora:.12,el:.05,porque:.05},vacaciones:{pidió:.44,colaboradora:.22,vacaciones:.2,porque:.08,La:.06},proyecto:{terminó:.42,el:.2,proyecto:.2,ella:.1,colaboradora:.08},pidió:{colaboradora:.45,vacaciones:.3,pidió:.15,La:.1}};
+  const def=w=>{const i=W.indexOf(w),o={};o[w]=.5;if(W[i-1])o[W[i-1]]=.25;if(W[i+1])o[W[i+1]]=.25;return o};
+  root.innerHTML=demoHead("¿En qué se fija cada palabra?","Pesos ilustrativos")+`<p class="note" style="margin:0">Toca una palabra para ver con cuáles se relaciona más.</p><div class="att-sent" id="sent">${W.map(w=>`<button type="button" data-w="${w}" aria-pressed="false">${w}</button>`).join("")}</div><div class="att-list" id="attList" aria-live="polite"></div><p class="note">Los porcentajes no vienen de un modelo real: ilustran cómo la atención reparte su foco entre las palabras de la frase.</p>`;
+  const show=w=>{const a=A[w]||def(w);const max=Math.max(...Object.values(a));root.querySelectorAll("#sent button").forEach(b=>{const v=a[b.dataset.w]||0;b.setAttribute("aria-pressed",b.dataset.w===w);b.style.background=v?`color-mix(in srgb, var(--accent) ${Math.round(v/max*55)}%, var(--surface))`:""});
+   root.querySelector("#attList").innerHTML=Object.entries(a).sort((x,y)=>y[1]-x[1]).map(([k,v])=>`<div class="att-row"><span>${k}</span><div class="track"><div class="fill" style="width:${v/max*100}%"></div></div><span class="v">${Math.round(v*100)}%</span></div>`).join("")};
+  root.querySelectorAll("#sent button").forEach(b=>b.addEventListener("click",()=>show(b.dataset.w)));show("ella");
+ },
+ predict(root){
+  const cand=[["lunes",2.4],["martes",2.0],["miércoles",1.6],["viernes",1.3],["mes",0.9],["año",0.2]];
+  root.innerHTML=demoHead("Elegir el siguiente token","Valores ilustrativos")+`<div class="prompt-line">La reunión de inducción será el próximo <em id="gap">…</em></div><div class="probs" id="probs"></div><div class="slider"><label for="temp">Temperatura</label><input type="range" id="temp" min="0.1" max="2" step="0.1" value="0.7"><output id="tv">0.7</output></div><div class="btns"><button type="button" id="sample">Elegir un token</button></div><p class="note">Con temperatura baja casi siempre gana «lunes». Súbela y verás que otras opciones empiezan a salir.</p>`;
+  const probs=()=>{const T=+root.querySelector("#temp").value;const e=cand.map(([,l])=>Math.exp(l/T));const s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)};
+  let pick=null;
+  const render=()=>{const p=probs();root.querySelector("#tv").textContent=(+root.querySelector("#temp").value).toFixed(1);root.querySelector("#probs").innerHTML=cand.map(([w],i)=>`<div class="prob${pick===i?" pick":""}"><span>${w}</span><div class="track"><div class="fill" style="width:${p[i]*100}%"></div></div><span class="v">${(p[i]*100).toFixed(0)}%</span></div>`).join("")};
+  root.querySelector("#temp").addEventListener("input",()=>{pick=null;root.querySelector("#gap").textContent="…";render()});
+  root.querySelector("#sample").addEventListener("click",()=>{const p=probs();let r=Math.random(),i=0;while(i<p.length-1&&(r-=p[i])>0)i++;pick=i;root.querySelector("#gap").textContent=cand[i][0];render()});
+  render();
+ },
+ generate(root){
+  const ctx="Escribe un saludo para los nuevos colaboradores.";
+  const toks=["¡","Bien","venidos"," al"," equipo","!"," Nos"," alegra"," que"," hagan"," parte"," de"," esta"," familia","."];
+  let k=0,timer=null;
+  root.innerHTML=demoHead("La respuesta se arma token a token","Ilustrativo")+`<div class="gen-out" id="go" aria-live="polite"></div><div class="loop" aria-hidden="true"><i data-s="0">1 · Leer contexto</i>→<i data-s="1">2 · Predecir</i>→<i data-s="2">3 · Agregar token</i>→<i>volver a 1</i></div><div class="btns"><button type="button" id="step">Siguiente token</button><button type="button" id="auto">Reproducir</button><button type="button" id="rst">Reiniciar</button></div><p class="note">El token nuevo (resaltado) pasa a formar parte del contexto antes de predecir el siguiente.</p>`;
+  const render=()=>{root.querySelector("#go").innerHTML=`<span class="ctx">${esc(ctx)}</span><br>`+toks.slice(0,k).map((t,i)=>i===k-1?`<span class="new">${esc(t)}</span>`:esc(t)).join("")+(k<toks.length?"▍":"");root.querySelectorAll(".loop i[data-s]").forEach(i=>i.classList.toggle("on",k>0&&k<=toks.length&&i.dataset.s==="2"));root.querySelector("#step").disabled=k>=toks.length};
+  const step=()=>{if(k<toks.length){k++;render()}else stop()};
+  const stop=()=>{clearInterval(timer);timer=null;root.querySelector("#auto").textContent="Reproducir"};
+  root.querySelector("#step").addEventListener("click",()=>{stop();step()});
+  root.querySelector("#auto").addEventListener("click",()=>{if(timer){stop();return}if(k>=toks.length)k=0;root.querySelector("#auto").textContent="Pausar";timer=setInterval(step,matchMedia("(prefers-reduced-motion: reduce)").matches?900:450)});
+  root.querySelector("#rst").addEventListener("click",()=>{stop();k=0;render()});
+  render();
+ }
+};
+
+/* ---------- Inicio ---------- */
+$("#backBtn").addEventListener("click",showMap);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#conceptView").hidden)showMap()});
+$("#themeBtn").addEventListener("click",()=>{const r=document.documentElement;const cur=r.dataset.theme||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");r.dataset.theme=cur==="dark"?"light":"dark"});
+let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(!$("#mapView").hidden)drawMap()},150)});
+buildRail();drawMap();
+const h=(location.hash||"").slice(1);if(byId[h])openConcept(h,false);
+</script>
